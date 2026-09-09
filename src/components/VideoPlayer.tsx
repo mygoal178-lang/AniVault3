@@ -156,31 +156,33 @@ export function VideoPlayer({
   const controlsTimeoutRef = useRef<any>(null);
 
   // Initialize stream URL when activeServerIndex or episode changes
-  useEffect(() => {
-    setHasError(false);
-    setIframeLoading(true); // reset spinner every time URL changes
-    const targetUrl = availableServers[activeServerIndex] || availableServers[0] || videoUrl;
-    setActiveUrl(targetUrl);
-    const isEmbed = checkIsIframeEmbed(targetUrl);
-    setUseIframe(isEmbed);
-    setSkippedIntro(false);
+ const [isLoading, setIsLoading] = useState(true);
+const prevSrcRef = useRef<string>("");
 
-    if (videoRef.current && !isEmbed) {
-      videoRef.current.load();
-      if (autoPlay) {
-        videoRef.current
-          .play()
-          .then(() => setIsPlaying(true))
-          .catch(() => {
-            if (videoRef.current) {
-              videoRef.current.muted = true;
-              setIsMuted(true);
-              videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-            }
-          });
-      }
-    }
-  }, [activeServerIndex, episodeNumber, availableServers, videoUrl, autoPlay]);
+useEffect(() => {
+  setError(false);
+  const nextSrc = servers[serverIndex] || servers[0] || fallbackSrc;
+  setSrc(nextSrc);
+
+  const isEmbed = isEmbedUrl(nextSrc);
+  setIsEmbed(isEmbed);
+
+  // Only show loader when the real source actually changed
+  if (nextSrc !== prevSrcRef.current) {
+    setIsLoading(true);
+    prevSrcRef.current = nextSrc;
+  }
+
+  // Safety timeout – hide loader after 6–8 s no matter what
+  const timer = setTimeout(() => setIsLoading(false), 7000);
+
+  if (!isEmbed && videoRef.current) {
+    videoRef.current.load();
+    // ... autoplay logic
+  }
+
+  return () => clearTimeout(timer);
+}, [serverIndex, episodeNumber, servers, fallbackSrc, autoPlay]);
 
   // Check saved progress on load
   useEffect(() => {
