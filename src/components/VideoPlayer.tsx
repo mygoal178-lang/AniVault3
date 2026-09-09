@@ -139,7 +139,7 @@ export function VideoPlayer({
   const [activeUrl, setActiveUrl] = useState(videoUrl || '');
   const [hasError, setHasError] = useState(false);
   const [useIframe, setUseIframe] = useState(false);
-  const [iframeLoading, setIframeLoading] = useState(true); // ← Loading spinner for embeds
+  const [iframeLoading, setIframeLoading] = useState(true);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -154,36 +154,58 @@ export function VideoPlayer({
   const [skippedIntro, setSkippedIntro] = useState(false);
 
   const controlsTimeoutRef = useRef<any>(null);
+  const prevSrcRef = useRef<string>("");
 
-  // Initialize stream URL when activeServerIndex or episode changes
- const [isLoading, setIsLoading] = useState(true);
-const prevSrcRef = useRef<string>("");
+  // Initialize / switch stream when server or episode changes
+  useEffect(() => {
+    setHasError(false);
 
-useEffect(() => {
-  setError(false);
-  const nextSrc = servers[serverIndex] || servers[0] || fallbackSrc;
-  setSrc(nextSrc);
+    const nextSrc =
+      availableServers[activeServerIndex] ||
+      availableServers[0] ||
+      videoUrl ||
+      "";
 
-  const isEmbed = isEmbedUrl(nextSrc);
-  setIsEmbed(isEmbed);
+    setActiveUrl(nextSrc);
 
-  // Only show loader when the real source actually changed
-  if (nextSrc !== prevSrcRef.current) {
-    setIsLoading(true);
-    prevSrcRef.current = nextSrc;
-  }
+    const isEmbed = checkIsIframeEmbed(nextSrc);
+    setUseIframe(isEmbed);
 
-  // Safety timeout – hide loader after 6–8 s no matter what
-  const timer = setTimeout(() => setIsLoading(false), 7000);
+    // Only show the loading overlay when the real source URL changes
+    if (nextSrc !== prevSrcRef.current) {
+      setIframeLoading(true);
+      prevSrcRef.current = nextSrc;
+    }
 
-  if (!isEmbed && videoRef.current) {
-    videoRef.current.load();
-    // ... autoplay logic
-  }
+    // Safety timeout – hide spinner after 7 seconds no matter what
+    const timer = setTimeout(() => {
+      setIframeLoading(false);
+    }, 7000);
 
-  return () => clearTimeout(timer);
-}, [serverIndex, episodeNumber, servers, fallbackSrc, autoPlay]);
+    // Native <video> handling
+    if (!isEmbed && videoRef.current) {
+      videoRef.current.load();
 
+      if (autoPlay) {
+        videoRef.current
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch(() => {
+            // Autoplay blocked → try muted
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              setIsMuted(true);
+              videoRef.current
+                .play()
+                .then(() => setIsPlaying(true))
+                .catch(() => setIsPlaying(false));
+            }
+          });
+      }
+    }
+
+    return () => clearTimeout(timer);
+  }, [activeServerIndex, episodeNumber, availableServers, videoUrl, autoPlay]);
   // Check saved progress on load
   useEffect(() => {
     const existing = watchHistory.find(
