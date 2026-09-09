@@ -15,23 +15,32 @@ export function AnimeInfoSection({
   totalEpisodes,
   navigate,
 }: AnimeInfoSectionProps) {
-  const title = typeof animeMeta?.title === 'object' 
-    ? (localAnime?.custom_title || animeMeta?.title_english || animeMeta?.title?.english || animeMeta?.title?.userPreferred || animeMeta?.title?.romaji || 'Anime')
-    : (localAnime?.custom_title || animeMeta?.title_english || animeMeta?.title || 'Anime');
+  const title =
+  localAnime?.custom_title ||
+  localAnime?.title ||
+  (typeof animeMeta?.title === 'object'
+    ? animeMeta?.title_english ||
+      animeMeta?.title?.english ||
+      animeMeta?.title?.userPreferred ||
+      animeMeta?.title?.romaji
+    : animeMeta?.title_english || animeMeta?.title) ||
+  'Anime';
 
-  const japaneseTitle = typeof animeMeta?.title === 'object'
-    ? (animeMeta?.title_japanese || animeMeta?.title?.native)
-    : animeMeta?.title_japanese;
+const coverUrl =
+  localAnime?.custom_cover_url ||
+  localAnime?.cover_url ||
+  animeMeta?.coverImage?.large ||
+  animeMeta?.coverImage?.extraLarge ||
+  animeMeta?.images?.jpg?.large_image_url ||
+  animeMeta?.images?.jpg?.image_url ||
+  'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=600&auto=format&fit=crop';
 
-  const coverUrl =
-    localAnime?.custom_cover_url ||
-    animeMeta?.coverImage?.large ||
-    animeMeta?.coverImage?.extraLarge ||
-    animeMeta?.images?.jpg?.large_image_url ||
-    animeMeta?.images?.jpg?.image_url ||
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=600&auto=format&fit=crop';
-
-  const synopsis = localAnime?.custom_description || animeMeta?.description || animeMeta?.synopsis || 'No synopsis available.';
+const synopsis =
+  localAnime?.custom_description ||
+  localAnime?.description ||
+  animeMeta?.description ||
+  animeMeta?.synopsis ||
+  'No synopsis available.';
   const score = animeMeta?.score || (animeMeta?.averageScore ? Number((animeMeta.averageScore / 10).toFixed(1)) : null);
   const ratingBadge = animeMeta?.rating ? animeMeta.rating.split(' ')[0] : 'PG-13';
   const type = animeMeta?.type || animeMeta?.format || 'TV';
