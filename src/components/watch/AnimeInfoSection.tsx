@@ -25,6 +25,10 @@ export function AnimeInfoSection({
       animeMeta?.title?.romaji
     : animeMeta?.title_english || animeMeta?.title) ||
   'Anime';
+    const japaneseTitle =
+    typeof animeMeta?.title === 'object'
+      ? animeMeta?.title_japanese || animeMeta?.title?.native
+      : animeMeta?.title_japanese;
 
 const coverUrl =
   localAnime?.custom_cover_url ||
