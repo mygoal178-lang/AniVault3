@@ -1682,51 +1682,51 @@ app.get('/api/episodes/:malId/:epNum', async (req: AuthenticatedRequest, res) =>
     };
 
     // 4. Fetch metadata
-    const { data: localAnime } = await db
-      .from('anime')
-      .select('*')
-      .eq('external_id', malId)
-      .maybeSingle();
+const { data: localAnime } = await db
+  .from('anime')
+  .select('*')
+  .eq('external_id', malId)
+  .maybeSingle();
 
-    let anilist = null;
-    try {
-      anilist = await anilistApi.getAnimeByMalId(malId);
-    } catch {
-      // Rich local fallback so watch page still shows cover, synopsis, and title
-      // when AniList is rate-limited or unreachable.
-      const cover =
-        localAnime?.custom_cover_url ||
-        localAnime?.cover_url ||
-        null;
-      const title =
-        localAnime?.custom_title ||
-        localAnime?.title ||
-        `Anime #${malId}`;
-      anilist = {
-        mal_id: malId,
-        id: malId,
-        title,
-        title_english: title,
-        description: localAnime?.custom_description || localAnime?.description || null,
-        synopsis: localAnime?.custom_description || localAnime?.description || null,
-        coverImage: cover
-          ? { large: cover, extraLarge: cover, medium: cover }
-          : undefined,
-        images: cover
-          ? {
-              jpg: {
-                large_image_url: cover,
-                image_url: cover,
-              },
-            }
-          : undefined,
-        genres: Array.isArray(localAnime?.genres) ? localAnime.genres : [],
-        type: localAnime?.type || 'TV',
-        year: localAnime?.year || null,
-        status: localAnime?.status || null,
-        rating: localAnime?.rating || null,
-      };
-    }
+let anilist: any = null;
+try {
+  anilist = await anilistApi.getAnimeByMalId(malId);
+} catch {
+  anilist = null;
+}
+
+// getAnimeByMalId returns null (does not throw) on failure — always fill fallback
+if (!anilist) {
+  const cover =
+    localAnime?.custom_cover_url ||
+    localAnime?.cover_url ||
+    null;
+  const title =
+    localAnime?.custom_title ||
+    localAnime?.title ||
+    `Anime #${malId}`;
+  anilist = {
+    mal_id: malId,
+    id: malId,
+    idMal: malId,
+    title,
+    title_english: title,
+    title_japanese: localAnime?.japanese_title || null,
+    description: localAnime?.custom_description || localAnime?.description || null,
+    synopsis: localAnime?.custom_description || localAnime?.description || null,
+    coverImage: cover
+      ? { large: cover, extraLarge: cover, medium: cover }
+      : undefined,
+    images: cover
+      ? { jpg: { large_image_url: cover, image_url: cover } }
+      : undefined,
+    genres: Array.isArray(localAnime?.genres) ? localAnime.genres : [],
+    type: localAnime?.type || 'TV',
+    year: localAnime?.year || null,
+    status: localAnime?.status || null,
+    rating: localAnime?.rating || null,
+  };
+}
 
     const epList = allEpisodes || [];
     const prevEp = epList.find((e) => Number(e.episode_number) === epNum - 1);
