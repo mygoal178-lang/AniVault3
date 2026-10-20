@@ -141,22 +141,7 @@ export function HomePage({ navigate }: HomePageProps) {
       </section>
 
       {/* Continue Watching Section */}
-      {watchHistory.length > 0 && (
-        <section className="rounded-3xl border border-white/5 bg-[#0a0a10] p-6 backdrop-blur-md">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-rose-500" />
-              <h2 className="text-xl font-black italic uppercase tracking-tight text-white border-l-4 border-rose-600 pl-3">
-                Continue Watching
-              </h2>
-            </div>
-            <button
-              onClick={() => navigate('/history')}
-              className="text-xs font-bold text-rose-400 hover:text-rose-300 uppercase tracking-wider"
-            >
-              View History →
-            </button>
-          </div>
+      
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {watchHistory.slice(0, 4).map((item) => {
