@@ -1,11 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Play, Sparkles, Flame, TrendingUp, Clock, Compass, Search } from 'lucide-react';
-import { animePath, watchPath } from '../lib/seo';
+import { Sparkles, Flame, TrendingUp, Compass, Search } from 'lucide-react';
 import { HeroCarousel } from '../components/HeroCarousel';
 import { AnimeCarousel } from '../components/AnimeCarousel';
-import { AnimeCard } from '../components/AnimeCard';
 import { api } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import { SiteAnime, JikanAnime } from '../types';
 
 interface HomePageProps {
@@ -13,8 +10,6 @@ interface HomePageProps {
 }
 
 export function HomePage({ navigate }: HomePageProps) {
-  const { watchHistory } = useAuth();
-
   const [siteAnime, setSiteAnime] = useState<SiteAnime[]>([]);
   const [topAnime, setTopAnime] = useState<JikanAnime[]>([]);
   const [seasonalAnime, setSeasonalAnime] = useState<JikanAnime[]>([]);
@@ -139,61 +134,6 @@ export function HomePage({ navigate }: HomePageProps) {
           </div>
         </form>
       </section>
-
-      {/* Continue Watching Section */}
-      
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {watchHistory.slice(0, 4).map((item) => {
-              const matchedSiteAnime = siteAnime.find((a) => a.mal_id === item.anime_mal_id);
-              const title =
-                matchedSiteAnime?.local?.custom_title ||
-                matchedSiteAnime?.jikan?.title ||
-                `Anime #${item.anime_mal_id}`;
-              const cover =
-                matchedSiteAnime?.local?.custom_cover_url ||
-                matchedSiteAnime?.jikan?.images?.jpg?.image_url;
-
-              const progressPct =
-                item.duration_seconds > 0
-                  ? Math.min(100, Math.floor((item.progress_seconds / item.duration_seconds) * 100))
-                  : 0;
-
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => navigate(watchPath(item.anime_mal_id, item.episode_number))}
-                  className="group relative flex cursor-pointer items-center gap-3 rounded-2xl border border-white/5 bg-[#08080c] p-3 hover:border-rose-600/50 transition-all"
-                >
-                  <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-black">
-                    <img src={cover} alt={title} className="h-full w-full object-cover" />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-rose-600/40 transition-colors">
-                      <Play className="h-5 w-5 fill-white text-white" />
-                    </div>
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <h4 className="truncate text-xs font-bold text-white group-hover:text-rose-400 uppercase">
-                      {title}
-                    </h4>
-                    <p className="text-[11px] font-bold text-rose-400 mt-0.5">
-                      Episode {item.episode_number}
-                    </p>
-
-                    {/* Progress Bar */}
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                      <div
-                        className="h-full bg-rose-600 rounded-full"
-                        style={{ width: `${progressPct}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {/* Featured Site Anime Row */}
       {siteAnime.length > 0 && (
