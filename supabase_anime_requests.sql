@@ -1,6 +1,17 @@
 -- Public anime request queue for AniVault
 -- Run this in Supabase SQL Editor (once).
 
+-- Create updated_at helper if your project does not already have it
+CREATE OR REPLACE FUNCTION public.set_current_timestamp_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS public.anime_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
@@ -20,7 +31,8 @@ CREATE INDEX IF NOT EXISTS idx_anime_requests_created_at ON public.anime_request
 DROP TRIGGER IF EXISTS set_anime_requests_updated_at ON public.anime_requests;
 CREATE TRIGGER set_anime_requests_updated_at
   BEFORE UPDATE ON public.anime_requests
-  FOR EACH ROW EXECUTE FUNCTION public.set_current_timestamp_updated_at();
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_current_timestamp_updated_at();
 
 ALTER TABLE public.anime_requests ENABLE ROW LEVEL SECURITY;
 
