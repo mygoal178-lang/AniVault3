@@ -184,8 +184,6 @@ export const api = {
     if (newValue.length < 6) throw new Error('New password must be at least 6 characters.');
     if (oldValue === newValue) throw new Error('New password must be different from the current password.');
 
-    // Verify the old password with a short-lived client so a failed check never
-    // replaces the user's existing browser session.
     const email = (await supabase.auth.getUser()).data.user?.email;
     if (!email) throw new Error('Your authenticated account could not be verified. Please sign in again.');
 
@@ -406,6 +404,35 @@ export const api = {
       throw new Error(error.message || 'Failed to toggle comment like.');
     }
     return data || { success: true };
+  },
+
+  // Public anime requests (no login required)
+  async submitAnimeRequest(payload: {
+    title: string;
+    note?: string;
+    email?: string;
+    mal_id?: number | null;
+    website?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    return fetchJson('/api/requests', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getAdminRequests(status?: string): Promise<any[]> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return fetchJson(`/api/admin/requests${q}`);
+  },
+
+  async updateAdminRequestStatus(
+    id: string,
+    status: 'pending' | 'imported' | 'rejected' | 'duplicate'
+  ): Promise<{ success: boolean; request: any }> {
+    return fetchJson(`/api/admin/requests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
   },
 
   async deleteComment(commentId: string): Promise<{ success: boolean }> {
