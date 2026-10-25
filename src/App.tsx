@@ -38,6 +38,9 @@ const LoginPage = lazy(() =>
 const AdminDashboard = lazy(() =>
   import('./pages/AdminDashboard').then((m) => ({ default: m.AdminDashboard }))
 );
+const RequestPage = lazy(() =>
+  import('./pages/RequestPage').then((m) => ({ default: m.RequestPage }))
+);
 
 function RouteFallback() {
   return (
@@ -117,6 +120,12 @@ export function AppContent() {
         title: 'Anime Genres & Categories',
         description: 'Browse anime by genre on AniVault — Action, Romance, Fantasy, Isekai, and more.',
         url: '/genres',
+      });
+    } else if (pathname === '/request') {
+      setPageSeo({
+        title: 'Request Anime',
+        description: 'Request your favorite anime to be added to AniVault. No account required.',
+        url: '/request',
       });
     } else {
       setPageSeo({ title: 'Anime Streaming Platform', description: 'Watch free anime online on AniVault.', url: pathname });
@@ -201,6 +210,11 @@ export function AppContent() {
     // Admin Dashboard Page: /admin
     if (pathname === '/admin') {
       return <AdminDashboard navigate={navigate} />;
+    }
+
+    // Public anime request page (no login required)
+    if (pathname === '/request') {
+      return <RequestPage navigate={navigate} />;
     }
 
     // Existing AniVault Homepage: /home
