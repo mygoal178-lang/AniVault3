@@ -1,7 +1,5 @@
--- ==============================================================================
--- AniVault: Public anime request queue
--- Run this in Supabase SQL Editor (once) before using /request
--- ==============================================================================
+-- Public anime request queue for AniVault
+-- Run this in Supabase SQL Editor (once).
 
 CREATE TABLE IF NOT EXISTS public.anime_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -26,14 +24,12 @@ CREATE TRIGGER set_anime_requests_updated_at
 
 ALTER TABLE public.anime_requests ENABLE ROW LEVEL SECURITY;
 
--- Anyone (including anon) can submit a request
 DROP POLICY IF EXISTS "Public Insert Anime Requests" ON public.anime_requests;
 CREATE POLICY "Public Insert Anime Requests"
   ON public.anime_requests FOR INSERT
   TO public, anon, authenticated
   WITH CHECK (true);
 
--- Only admins can read / update / delete
 DROP POLICY IF EXISTS "Admin Read Anime Requests" ON public.anime_requests;
 CREATE POLICY "Admin Read Anime Requests"
   ON public.anime_requests FOR SELECT
