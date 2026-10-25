@@ -36,6 +36,7 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
   const navMenuRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
+  // Close dropdowns and hamburger menu on click outside or Escape key press
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userRef.current && !userRef.current.contains(event.target as Node)) {
@@ -81,6 +82,7 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
     setIsNavMenuOpen(false);
   };
 
+  // Nav menu items shown exclusively inside the ☰ Hamburger Drawer/Dropdown
   const menuItems = [
     { label: 'Home', route: '/home', icon: Compass, description: 'Explore trending & top anime' },
     { label: 'Genres', route: '/genres', icon: Sparkles, description: 'Action, Shonen, Romance & more' },
@@ -104,7 +106,12 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/5 bg-[#08080c]/95 backdrop-blur-md transition-all">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 w-full min-w-0">
+        
+        {/* ========================================================================= */}
+        {/* LEFT SECTION: ☰ Hamburger Button + Brand Logo (No permanently visible links) */}
+        {/* ========================================================================= */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0" ref={navMenuRef}>
+          {/* Hamburger Menu Button (☰) */}
           <div className="relative">
             <button
               id="hamburger-nav-btn"
@@ -123,6 +130,7 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
               {isNavMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
 
+            {/* ☰ Opened Navigation Menu (Desktop Popover Dropdown & Mobile Slide Panel) */}
             {isNavMenuOpen && (
               <div
                 id="hamburger-nav-menu"
@@ -184,6 +192,7 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
                     );
                   })}
 
+                  {/* Protected Admin link inside menu */}
                   {isAdmin && (
                     <>
                       <div className="my-1 border-t border-white/5" />
@@ -209,6 +218,7 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
             )}
           </div>
 
+          {/* AniVault Brand Logo */}
           <button
             onClick={() => navigate('/home')}
             className="flex items-center gap-2.5 text-left group focus:outline-none shrink-0"
@@ -227,6 +237,9 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
           </button>
         </div>
 
+        {/* ========================================================================= */}
+        {/* CENTER SECTION: Search Box (Desktop) */}
+        {/* ========================================================================= */}
         <div className="hidden md:flex flex-1 items-center justify-center px-4 max-w-sm lg:max-w-md mx-auto">
           <form onSubmit={handleSearchSubmit} className="relative w-full">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
@@ -249,7 +262,11 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
           </form>
         </div>
 
+        {/* ========================================================================= */}
+        {/* RIGHT SECTION: Search Icon (Mobile) + Authentication / Account Controls */}
+        {/* ========================================================================= */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Mobile Search Toggle Button */}
           <button
             onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 md:hidden active:scale-95 shrink-0 hover:text-white"
@@ -260,6 +277,7 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
 
           {user ? (
             <div className="flex items-center gap-2">
+              {/* Admin Button (Only visible to authenticated administrators on desktop) */}
               {isAdmin && (
                 <button
                   onClick={() => navigate('/admin')}
@@ -275,6 +293,7 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
                 </button>
               )}
 
+              {/* User Account / Profile Dropdown */}
               <div className="relative" ref={userRef}>
                 <button
                   id="user-profile-menu-btn"
@@ -307,12 +326,14 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
                   <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-white transition-colors" />
                 </button>
 
+                {/* User Dropdown Menu */}
                 {isUserDropdownOpen && (
                   <div
                     id="user-profile-dropdown"
                     className="absolute right-0 mt-2.5 w-64 rounded-3xl border border-white/10 bg-[#0a0a10]/98 p-3 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-2 z-50"
                     onClick={() => setIsUserDropdownOpen(false)}
                   >
+                    {/* User Header with Large Anime Avatar */}
                     <div className="flex items-center gap-3 p-2 border-b border-white/5 mb-2">
                       <div className="relative shrink-0">
                         <img
@@ -396,6 +417,9 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
         </div>
       </div>
 
+      {/* ========================================================================= */}
+      {/* MOBILE QUICK SEARCH BAR (SLIDE-DOWN) */}
+      {/* ========================================================================= */}
       {isMobileSearchOpen && (
         <div className="md:hidden border-t border-white/5 bg-[#0a0a10]/98 px-4 py-3 shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2">
           <form onSubmit={handleSearchSubmit} className="relative flex items-center">
@@ -423,3 +447,5 @@ export function Header({ currentRoute, currentPath, navigate }: HeaderProps) {
     </header>
   );
 }
+
+
