@@ -29,6 +29,7 @@ import {
   Activity,
   Database,
   CheckCircle2,
+  Inbox,
 } from 'lucide-react';
 import { animePath, watchPath } from '../lib/seo';
 import { useAuth } from '../context/AuthContext';
@@ -38,6 +39,7 @@ import { getSafeAvatar, DEFAULT_FALLBACK_AVATAR } from '../lib/avatars';
 import { AnimeFormModal } from '../components/admin/AnimeFormModal';
 import { AnimeCMS } from '../components/admin/AnimeCMS';
 import { EpisodeManager } from '../components/admin/EpisodeManager';
+import { RequestsPanel } from '../components/admin/RequestsPanel';
 
 interface AdminDashboardProps {
   navigate: (route: string) => void;
@@ -46,7 +48,7 @@ interface AdminDashboardProps {
 export function AdminDashboard({ navigate }: AdminDashboardProps) {
   const { user, isAdmin, adminLogin, showToast } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'stats' | 'add-anime' | 'manage-anime' | 'episodes' | 'users' | 'settings'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'add-anime' | 'manage-anime' | 'episodes' | 'requests' | 'users' | 'settings'>('stats');
   const [selectedEpisodeAnime, setSelectedEpisodeAnime] = useState<any | null>(null);
 
   // Inline Admin Login State
@@ -565,6 +567,7 @@ export function AdminDashboard({ navigate }: AdminDashboardProps) {
           { id: 'add-anime', label: '+ Import Jikan Anime', icon: Plus },
           { id: 'manage-anime', label: 'Anime CMS', icon: Film },
           { id: 'episodes', label: 'Episode Manager', icon: Tv },
+          { id: 'requests', label: 'Anime Requests', icon: Inbox },
           { id: 'users', label: 'User Accounts', icon: Users },
           { id: 'settings', label: 'Security & Password', icon: Key },
         ].map((tab) => {
@@ -1474,6 +1477,11 @@ export function AdminDashboard({ navigate }: AdminDashboardProps) {
             </button>
           </form>
         </div>
+      )}
+
+      {/* TAB: ANIME REQUESTS (public submissions) */}
+      {activeTab === 'requests' && (
+        <RequestsPanel showToast={showToast} />
       )}
 
       {/* Confirm Delete Dialog Modal */}
