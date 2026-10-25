@@ -1,0 +1,37 @@
+--- a/server/app.ts
++++ b/server/app.ts
+@@ -5,6 +5,7 @@
+ import { supabaseAdmin, isSupabaseConfigured } from './supabase.js';
+ import { rateLimit } from './rateLimit.js';
+ import { searchLocalAnime, getLocalGenres, getLocalTopAnime, getLocalSeasonAnime } from './catalogFallback.js';
++import { registerRequestRoutes } from './requestRoutes.js';
+ 
+ const app = express();
+ 
+@@ -42,7 +43,8 @@
+       pathOnly.startsWith('/health') ||
+       pathOnly.startsWith('/db') ||
+       pathOnly.startsWith('/anilist') ||
+-      pathOnly.startsWith('/jikan');
++      pathOnly.startsWith('/jikan') ||
++      pathOnly.startsWith('/requests');
+ 
+     if (needsPrefix) {
+       const normalizedPath = pathOnly === '/' || pathOnly === '' ? '/api/health' : `/api${pathOnly}`;
+@@ -124,7 +126,7 @@
+ app.get('/api/db/health', async (req: AuthenticatedRequest, res) => {
+   const checks: Record<string, any> = {};
+   try {
+-    const tables = ['anime', 'episodes', 'episode_servers', 'users', 'watchlist', 'watch_history', 'comments'];
++    const tables = ['anime', 'episodes', 'episode_servers', 'users', 'watchlist', 'watch_history', 'comments', 'anime_requests'];
+     const dbForHealth = supabaseAdmin || req.supabase;
+     for (const table of tables) {
+       const { count, error } = await dbForHealth
+@@ -1746,5 +1748,7 @@
+   }
+ });
+ 
++registerRequestRoutes(app);
++
+ export { app };
+ export default app;
