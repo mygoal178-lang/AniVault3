@@ -55,6 +55,14 @@
       "destination": "/api"
     },
     {
+      "source": "/api/requests",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/requests/(.*)",
+      "destination": "/api"
+    },
+    {
       "source": "/api/anime",
       "destination": "/api"
     },
