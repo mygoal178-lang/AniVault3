@@ -1,6 +1,6 @@
 -- ==============================================================================
--- AniVault: Public Anime Request Queue
--- Run this in Supabase SQL Editor after deploying the app code.
+-- AniVault: Public anime request queue
+-- Run this in Supabase SQL Editor (once) before using /request
 -- ==============================================================================
 
 CREATE TABLE IF NOT EXISTS public.anime_requests (
