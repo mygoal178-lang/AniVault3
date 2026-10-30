@@ -39,6 +39,10 @@
     "api/db/health.ts": {
       "maxDuration": 10,
       "memory": 512
+    },
+    "api/admin/stats.ts": {
+      "maxDuration": 15,
+      "memory": 1024
     }
   },
   "rewrites": [
@@ -49,6 +53,10 @@
     {
       "source": "/api/db/health",
       "destination": "/api/db/health"
+    },
+    {
+      "source": "/api/admin/stats",
+      "destination": "/api/admin/stats"
     },
     {
       "source": "/api/health",
