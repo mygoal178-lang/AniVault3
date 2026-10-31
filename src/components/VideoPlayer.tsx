@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   RefreshCw,
   FastForward,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -91,6 +92,19 @@ export function checkIsIframeEmbed(url: string): boolean {
   );
 }
 
+/** Detect iOS / iPadOS / Apple TV / many WebKit TV browsers where iframe embeds often fail. */
+export function isAppleLikeDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  // Classic iOS + iPadOS (including desktop-class iPad)
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  // iPadOS 13+ reports as Mac but has touch
+  if (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1) return true;
+  // Apple TV / some smart TVs
+  if (/AppleTV|Apple TV|TVOS|SmartTV|SMART-TV|Web0S|Tizen|Viera|NetCast/i.test(ua)) return true;
+  return false;
+}
+
 export function VideoPlayer({
   videoUrl,
   serverUrls,
@@ -140,6 +154,9 @@ export function VideoPlayer({
   const [hasError, setHasError] = useState(false);
   const [useIframe, setUseIframe] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(true);
+  const [isAppleDevice] = useState(() => isAppleLikeDevice());
+  const [showExternalPrompt, setShowExternalPrompt] = useState(false);
+  const [iframeFailed, setIframeFailed] = useState(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -159,6 +176,8 @@ export function VideoPlayer({
   // Initialize / switch stream when server or episode changes
   useEffect(() => {
     setHasError(false);
+    setIframeFailed(false);
+    setShowExternalPrompt(false);
 
     const nextSrc =
       availableServers[activeServerIndex] ||
@@ -175,6 +194,22 @@ export function VideoPlayer({
     if (nextSrc !== prevSrcRef.current) {
       setIframeLoading(true);
       prevSrcRef.current = nextSrc;
+    }
+
+    // On Apple devices / TVs, iframe embeds frequently hang or black-screen.
+    // Show a clear external-player prompt after a short delay so users are not stuck.
+    if (isEmbed && isAppleDevice) {
+      const promptTimer = setTimeout(() => {
+        setShowExternalPrompt(true);
+      }, 2500);
+      // Also stop the spinner earlier so the prompt is visible
+      const timer = setTimeout(() => {
+        setIframeLoading(false);
+      }, 4000);
+      return () => {
+        clearTimeout(promptTimer);
+        clearTimeout(timer);
+      };
     }
 
     // Safety timeout – hide spinner after 7 seconds no matter what
@@ -205,7 +240,7 @@ export function VideoPlayer({
     }
 
     return () => clearTimeout(timer);
-  }, [activeServerIndex, episodeNumber, availableServers, videoUrl, autoPlay]);
+  }, [activeServerIndex, episodeNumber, availableServers, videoUrl, autoPlay, isAppleDevice]);
   // Check saved progress on load
   useEffect(() => {
     const existing = watchHistory.find(
@@ -581,14 +616,52 @@ export function VideoPlayer({
             </div>
           </div>
         ) : useIframe ? (
-          /* ========== IFRAME EMBED WITH LOADING SPINNER ========== */
+          /* ========== IFRAME EMBED (with iOS / TV friendly fallback) ========== */
           <div className="relative h-full w-full">
-            {iframeLoading && (
+            {iframeLoading && !showExternalPrompt && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/90">
                 <div className="h-10 w-10 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
                 <p className="mt-3 text-sm text-slate-300">Loading player...</p>
               </div>
             )}
+
+            {/* Always-available external player button (critical for iPhone / Apple TV / smart TVs) */}
+            {(showExternalPrompt || iframeFailed || isAppleDevice) && activeUrl && (
+              <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-2 bg-gradient-to-t from-black via-black/90 to-transparent px-4 pb-5 pt-10">
+                <p className="text-center text-xs text-slate-300 max-w-sm leading-relaxed">
+                  {isAppleDevice
+                    ? "Player may not load inside the app on iPhone / Apple TV. Open it externally for best results."
+                    : "Having trouble? Open the player in a new tab."}
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <a
+                    href={activeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-purple-500 active:scale-95 transition"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open Player
+                  </a>
+                  {availableServers.length > 1 && onServerIndexChange && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIframeFailed(false);
+                        setShowExternalPrompt(false);
+                        setIframeLoading(true);
+                        onServerIndexChange((activeServerIndex + 1) % availableServers.length);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 text-sm font-semibold text-white hover:bg-white/20 transition"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Next Server
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             <iframe
               key={activeUrl}
               src={activeUrl}
@@ -598,8 +671,17 @@ export function VideoPlayer({
               allowFullScreen
               loading="eager"
               referrerPolicy="no-referrer"
-              onLoad={() => setIframeLoading(false)}
-              onError={() => setIframeLoading(false)}
+              // sandbox keeps some hosts happy while still allowing the player to function
+              sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+              onLoad={() => {
+                setIframeLoading(false);
+                // Give the embed a moment; if still black many users will use the Open Player button
+              }}
+              onError={() => {
+                setIframeLoading(false);
+                setIframeFailed(true);
+                setShowExternalPrompt(true);
+              }}
             />
           </div>
         ) : (
@@ -615,6 +697,10 @@ export function VideoPlayer({
               onEnded={handleVideoEnded}
               onError={handleVideoError}
               playsInline
+              // @ts-expect-error legacy iOS attribute still required by older WebKit
+              webkit-playsinline="true"
+              x-webkit-airplay="allow"
+              preload="metadata"
               className="h-full w-full object-contain cursor-pointer"
             >
               {subtitleUrl && (
@@ -657,111 +743,80 @@ export function VideoPlayer({
                     setSkippedIntro(true);
                   }
                 }}
-                className="absolute bottom-16 right-4 z-30 flex items-center gap-1.5 rounded-lg border border-white/20 bg-black/80 px-3 py-1.5 text-xs font-bold text-white shadow-xl backdrop-blur-md hover:bg-purple-600 hover:border-purple-400 transition-all animate-bounce"
+                className="absolute bottom-20 right-4 z-20 flex items-center gap-1.5 rounded-lg bg-black/80 px-3 py-1.5 text-xs font-bold text-white border border-white/20 hover:bg-purple-600 transition-colors"
               >
-                <FastForward className="h-3.5 w-3.5 text-amber-400" />
-                <span>Skip Intro (85s)</span>
+                <FastForward className="h-3.5 w-3.5" />
+                Skip Intro
               </button>
             )}
 
-            {/* Central Play Overlay Button */}
-            {!isPlaying && !hasError && (
-              <button
-                onClick={togglePlay}
-                className="absolute inset-0 m-auto flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-purple-600/90 text-white shadow-2xl transition-transform duration-200 hover:scale-110 hover:bg-purple-600"
-                title="Play Video"
-              >
-                <Play className="h-6 w-6 sm:h-7 sm:w-7 fill-white ml-1" />
-              </button>
-            )}
-
-            {/* Player Controls Bar on Hover */}
+            {/* Custom Controls Overlay */}
             <div
-              className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-3 sm:p-4 transition-opacity duration-300 z-20 ${
+              className={`absolute inset-0 z-10 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/20 to-transparent transition-opacity duration-300 ${
                 showControls || !isPlaying ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
             >
-              {/* Progress Slider */}
-              <div className="relative mb-2 flex items-center">
+              {/* Progress Bar */}
+              <div className="px-3 pb-1">
                 <input
                   type="range"
                   min={0}
                   max={duration || 100}
                   value={currentTime}
                   onChange={handleSeek}
-                  className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-white/20 accent-purple-500 hover:h-2 transition-all"
+                  className="w-full h-1 accent-purple-500 cursor-pointer"
                 />
               </div>
 
-              {/* Bottom Controls Row */}
-              <div className="flex items-center justify-between">
-                {/* Left controls */}
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <button onClick={togglePlay} className="p-1 text-slate-200 hover:text-white">
-                    {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 fill-white" />}
+              <div className="flex items-center justify-between px-3 pb-3 gap-2">
+                <div className="flex items-center gap-2">
+                  <button onClick={togglePlay} className="p-1 text-white hover:text-purple-400">
+                    {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                   </button>
-
-                  <button
-                    onClick={() => skip(-10)}
-                    className="text-xs font-bold text-slate-300 hover:text-white px-1.5 py-0.5 rounded bg-white/10"
-                    title="Rewind 10s"
-                  >
-                    -10s
+                  <button onClick={() => skip(-10)} className="p-1 text-slate-300 hover:text-white text-xs font-bold">
+                    -10
                   </button>
-
-                  <button
-                    onClick={() => skip(10)}
-                    className="text-xs font-bold text-slate-300 hover:text-white px-1.5 py-0.5 rounded bg-white/10"
-                    title="Forward 10s"
-                  >
-                    +10s
+                  <button onClick={() => skip(10)} className="p-1 text-slate-300 hover:text-white text-xs font-bold">
+                    +10
                   </button>
-
-                  {/* Volume Slider */}
-                  <div className="flex items-center gap-1.5 group/vol">
-                    <button onClick={toggleMute} className="p-1 text-slate-300 hover:text-white">
-                      {isMuted || volume === 0 ? (
-                        <VolumeX className="h-4 w-4 text-rose-400" />
-                      ) : (
-                        <Volume2 className="h-4 w-4" />
-                      )}
-                    </button>
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={isMuted ? 0 : volume}
-                      onChange={handleVolumeChange}
-                      className="w-14 h-1 bg-white/20 rounded cursor-pointer accent-purple-500 hidden sm:block"
-                    />
-                  </div>
-
-                  {/* Time */}
-                  <span className="text-[11px] font-medium text-slate-300 ml-1">
+                  <span className="text-xs text-slate-300 tabular-nums">
                     {formatTime(currentTime)} / {formatTime(duration)}
                   </span>
                 </div>
 
-                {/* Right controls */}
-                <div className="flex items-center gap-2 relative">
-                  {/* Speed */}
+                <div className="flex items-center gap-1.5">
+                  <button onClick={toggleMute} className="p-1 text-slate-300 hover:text-white">
+                    {isMuted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeChange}
+                    className="w-16 h-1 accent-purple-500 hidden sm:block"
+                  />
+                  <button onClick={togglePiP} className="p-1 text-slate-300 hover:text-white" title="Picture in Picture">
+                    <PictureInPicture className="h-4 w-4" />
+                  </button>
                   <div className="relative">
                     <button
                       onClick={() => setShowSettings(!showSettings)}
-                      className="rounded px-2 py-1 text-xs font-bold text-slate-300 hover:bg-white/10 hover:text-white flex items-center gap-1"
+                      className="p-1 text-slate-300 hover:text-white"
                     >
-                      <Settings className="h-3.5 w-3.5" />
-                      <span>{playbackSpeed}x</span>
+                      <Settings className="h-4 w-4" />
                     </button>
-
                     {showSettings && (
-                      <div className="absolute right-0 bottom-full mb-2 w-28 rounded-xl border border-white/10 bg-[#0d0d18]/95 p-1 shadow-2xl backdrop-blur-xl z-50">
-                        {[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((s) => (
+                      <div className="absolute bottom-8 right-0 z-30 min-w-[120px] rounded-lg border border-white/10 bg-black/95 p-2 shadow-xl">
+                        <p className="mb-1 px-2 text-[10px] font-bold uppercase text-slate-500">Speed</p>
+                        {[0.5, 0.75, 1, 1.25, 1.5, 2].map((s) => (
                           <button
                             key={s}
                             onClick={() => changeSpeed(s)}
-                            className="flex w-full items-center justify-between rounded-lg px-2.5 py-1 text-xs text-slate-200 hover:bg-purple-600 hover:text-white"
+                            className={`flex w-full items-center justify-between rounded px-2 py-1 text-xs ${
+                              playbackSpeed === s ? 'bg-purple-600/40 text-white' : 'text-slate-300 hover:bg-white/10'
+                            }`}
                           >
                             <span>{s}x</span>
                             {playbackSpeed === s && <Check className="h-3 w-3" />}
@@ -770,17 +825,6 @@ export function VideoPlayer({
                       </div>
                     )}
                   </div>
-
-                  {/* PiP */}
-                  <button
-                    onClick={togglePiP}
-                    className="p-1 text-slate-300 hover:text-white hidden sm:block"
-                    title="Picture in Picture"
-                  >
-                    <PictureInPicture className="h-4 w-4" />
-                  </button>
-
-                  {/* Fullscreen */}
                   <button
                     onClick={toggleFullscreen}
                     className="p-1 text-slate-300 hover:text-white"
