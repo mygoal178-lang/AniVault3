@@ -671,11 +671,8 @@ export function VideoPlayer({
               allowFullScreen
               loading="eager"
               referrerPolicy="no-referrer"
-              // sandbox keeps some hosts happy while still allowing the player to function
-              sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
               onLoad={() => {
                 setIframeLoading(false);
-                // Give the embed a moment; if still black many users will use the Open Player button
               }}
               onError={() => {
                 setIframeLoading(false);
