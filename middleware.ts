@@ -22,10 +22,10 @@ function isBot(ua: string | null): boolean {
 
 function escapeHtml(str: string): string {
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/"/g, '"')
     .replace(/'/g, '&#39;');
 }
 
@@ -39,14 +39,14 @@ const STATIC_PAGES: Record<
     description:
       'Discover anime, explore new releases, and watch your favorite anime free in HD on AniVault. English subtitles and dub available.',
     h1: 'Watch Anime Online Free in HD',
-    body: 'AniVault is your free anime streaming platform. Search thousands of titles, track your watchlist, and continue watching from one clean place. New episodes updated regularly.',
+    body: 'AniVault is your free anime streaming platform. Search thousands of titles, track your watchlist, and continue watching from one clean place. Browse genres, recently updated episodes, and request titles. New episodes updated regularly.',
   },
   '/home': {
     title: 'Home - AniVault',
     description:
       'Browse trending anime, new releases, and continue watching on AniVault. Free HD streaming with subtitles and dub.',
     h1: 'Home',
-    body: 'Discover trending anime, new releases, and pick up where you left off. AniVault brings thousands of titles together in one place.',
+    body: 'Discover trending anime, new releases, and pick up where you left off. AniVault brings thousands of titles together in one place. Explore genres and recently updated series.',
   },
   '/search': {
     title: 'Search Anime - AniVault',
@@ -75,6 +75,34 @@ const STATIC_PAGES: Record<
       'Latest anime updates and new episodes on AniVault. Watch the newest content free in HD.',
     h1: 'Anime Updates',
     body: 'Check the latest anime updates and newly added episodes. Keep your watchlist current with AniVault.',
+  },
+  '/request': {
+    title: 'Request Anime - AniVault',
+    description:
+      'Request your favorite anime to be added to AniVault. Help expand the catalog for everyone.',
+    h1: 'Request Anime',
+    body: 'Cannot find a title? Submit a request and help grow the AniVault catalog. Browse existing series on Home, Search, and Genres while you wait.',
+  },
+  '/about': {
+    title: 'About AniVault',
+    description:
+      'AniVault is a free anime discovery and streaming platform. Browse thousands of titles, track your watchlist, and watch episodes in HD.',
+    h1: 'About AniVault',
+    body: 'AniVault is built for anime fans who want a clean place to discover series, follow new episodes, and keep a personal watchlist. Browse trending titles, search by name or genre, and continue watching from where you left off.',
+  },
+  '/privacy': {
+    title: 'Privacy Policy - AniVault',
+    description:
+      'Privacy Policy for AniVault. Learn how we handle account data, watch history, and analytics.',
+    h1: 'Privacy Policy',
+    body: 'AniVault may collect information you provide when you create an account and usage data needed to operate the service. We use analytics to improve the product. We do not sell your personal information. See the full policy on this page after JavaScript loads for users.',
+  },
+  '/terms': {
+    title: 'Terms of Service - AniVault',
+    description:
+      'Terms of Service for using AniVault. Read the rules for accounts, content, and acceptable use.',
+    h1: 'Terms of Service',
+    body: 'By using AniVault you agree to these terms. The service provides anime discovery and related features. Content availability may change. Trademarks belong to their respective owners. Use the service lawfully.',
   },
 };
 
@@ -150,6 +178,9 @@ function buildPageHtml(opts: {
       <a href="https://www.anivault.online/search">Search</a>
       <a href="https://www.anivault.online/genres">Genres</a>
       <a href="https://www.anivault.online/updated">Updated</a>
+      <a href="https://www.anivault.online/about">About</a>
+      <a href="https://www.anivault.online/privacy">Privacy</a>
+      <a href="https://www.anivault.online/terms">Terms</a>
     </nav>
   </header>
   <main>
@@ -238,12 +269,10 @@ export default async function middleware(request: Request) {
   const url = new URL(request.url);
   const { pathname } = url;
 
-  // Only special-case bots
   if (!isBot(ua)) {
     return;
   }
 
-  // 1. Homepage + main listing pages
   const staticPage = STATIC_PAGES[pathname];
   if (staticPage) {
     const html = buildPageHtml({
@@ -264,7 +293,6 @@ export default async function middleware(request: Request) {
     });
   }
 
-  // 2. Anime detail pages
   if (!pathname.startsWith('/anime/')) {
     return;
   }
