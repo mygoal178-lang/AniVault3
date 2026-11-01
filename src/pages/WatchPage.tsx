@@ -108,7 +108,7 @@ export function WatchPage({ malId, epNum, navigate }: WatchPageProps) {
     };
   }, [malId, epNum]);
 
-  // Dynamic SEO for watch page
+  // SEO: noindex watch/episode pages so Google focuses on /anime/ pages
   useEffect(() => {
     if (!data) return;
     const localAnime = data.localAnime;
@@ -132,19 +132,10 @@ export function WatchPage({ malId, epNum, navigate }: WatchPageProps) {
       image: cover,
       url: path,
       type: 'video.episode',
+      noindex: true,
     });
-    setJsonLd({
-      '@context': 'https://schema.org',
-      '@type': 'TVEpisode',
-      name: `${animeTitle} Episode ${epNum}`,
-      episodeNumber: epNum,
-      partOfSeries: {
-        '@type': 'TVSeries',
-        name: animeTitle,
-      },
-      url: `https://anivault-pi.vercel.app${path}`,
-      image: cover || undefined,
-    });
+    // Do not promote episode pages in structured data for search engines
+    setJsonLd(null);
     if (typeof window !== 'undefined') {
       const current = window.location.pathname;
       const pure = `/watch/${malId}/${epNum}`;

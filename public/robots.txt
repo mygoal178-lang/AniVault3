@@ -4,6 +4,7 @@ Disallow: /admin
 Disallow: /login
 Disallow: /watchlist
 Disallow: /history
+Disallow: /watch/
 Disallow: /api/
 
 Sitemap: https://www.anivault.online/sitemap.xml
