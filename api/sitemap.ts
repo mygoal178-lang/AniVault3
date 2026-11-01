@@ -53,6 +53,26 @@ export default async function handler(req: any, res: any) {
         changefreq: "hourly",
         priority: "0.7",
       },
+      {
+        url: `${SITE_URL}/request`,
+        changefreq: "weekly",
+        priority: "0.6",
+      },
+      {
+        url: `${SITE_URL}/about`,
+        changefreq: "monthly",
+        priority: "0.5",
+      },
+      {
+        url: `${SITE_URL}/privacy`,
+        changefreq: "monthly",
+        priority: "0.4",
+      },
+      {
+        url: `${SITE_URL}/terms`,
+        changefreq: "monthly",
+        priority: "0.4",
+      },
     ];
 
     /*
@@ -74,15 +94,6 @@ export default async function handler(req: any, res: any) {
     /*
      * ---------------------------------------------------------
      * GET EPISODES
-     *
-     * This assumes your episodes table has:
-     *   id
-     *   anime_id
-     *   episode_number
-     *   updated_at
-     *
-     * If your table/column names are different, tell me and
-     * I'll adjust them.
      * ---------------------------------------------------------
      */
 
@@ -90,11 +101,6 @@ export default async function handler(req: any, res: any) {
       .from("episodes")
       .select("id, anime_id, episode_number, updated_at")
       .order("episode_number", { ascending: true });
-
-    /*
-     * If the episodes table does not exist, don't break the
-     * entire sitemap. Anime pages will still be generated.
-     */
 
     if (episodeError) {
       console.warn(
@@ -206,10 +212,6 @@ ${uniqueUrls
 
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
 
-    /*
-     * Prevent unnecessary caching while testing.
-     * You can increase this later if needed.
-     */
     res.setHeader(
       "Cache-Control",
       "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
@@ -225,12 +227,6 @@ ${uniqueUrls
   }
 }
 
-/*
- * ---------------------------------------------------------
- * SLUG GENERATOR
- * ---------------------------------------------------------
- */
-
 function slugify(value: string): string {
   return value
     .toString()
@@ -244,17 +240,11 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/*
- * ---------------------------------------------------------
- * XML ESCAPE
- * ---------------------------------------------------------
- */
-
 function escapeXml(value: string): string {
   return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+    .replace(/&/g, "&")
+    .replace(/</g, "<")
+    .replace(/>/g, ">")
+    .replace(/"/g, """)
+    .replace(/'/g, "'");
 }
