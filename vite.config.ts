@@ -12,6 +12,10 @@ export default defineConfig(() => {
       },
     },
     build: {
+      target: 'es2020',
+      cssCodeSplit: true,
+      sourcemap: false,
+      minify: 'esbuild',
       chunkSizeWarningLimit: 600,
       rollupOptions: {
         output: {
