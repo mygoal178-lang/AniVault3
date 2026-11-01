@@ -60,6 +60,7 @@ export default async function handler(req: any, res: any) {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
+    // Static pages only (no watch/episode URLs)
     const staticPages = [
       { url: `${SITE_URL}/`, changefreq: 'daily', priority: '1.0' },
       { url: `${SITE_URL}/home`, changefreq: 'daily', priority: '0.9' },
@@ -73,14 +74,13 @@ export default async function handler(req: any, res: any) {
       { url: `${SITE_URL}/terms`, changefreq: 'monthly', priority: '0.4' },
     ];
 
-    // Anime list (Supabase default max rows is often 1000 — paginate if needed)
     let anime: any[] = [];
     try {
       const { data, error } = await supabase
         .from('anime')
         .select('id, external_id, title, updated_at')
         .order('updated_at', { ascending: false })
-        .limit(2000);
+        .limit(5000);
 
       if (error) {
         console.error('Anime sitemap error:', error.message);
@@ -91,37 +91,12 @@ export default async function handler(req: any, res: any) {
       console.error('Anime fetch threw:', e?.message || e);
     }
 
-    // Episodes — limit to keep function fast/reliable
-    let episodes: any[] = [];
-    try {
-      const { data, error } = await supabase
-        .from('episodes')
-        .select('id, anime_id, episode_number, updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(3000);
-
-      if (error) {
-        console.warn('Episode sitemap warning:', error.message);
-      } else {
-        episodes = data || [];
-      }
-    } catch (e: any) {
-      console.warn('Episode fetch threw:', e?.message || e);
-    }
-
     const urls: Array<{
       url: string;
       lastmod?: string | null;
       changefreq: string;
       priority: string;
     }> = [...staticPages];
-
-    // Map for O(1) episode → anime lookup
-    const animeById = new Map<string, any>();
-    for (const item of anime) {
-      if (item?.id != null) animeById.set(String(item.id), item);
-      if (item?.external_id != null) animeById.set(String(item.external_id), item);
-    }
 
     for (const item of anime) {
       try {
@@ -136,37 +111,6 @@ export default async function handler(req: any, res: any) {
           lastmod: toIso(item.updated_at),
           changefreq: 'daily',
           priority: '0.9',
-        });
-      } catch {
-        // skip bad row
-      }
-    }
-
-    for (const episode of episodes) {
-      try {
-        const animeItem =
-          animeById.get(String(episode.anime_id)) || null;
-
-        if (!animeItem) continue;
-
-        const externalId = animeItem.external_id ?? animeItem.id;
-        if (
-          !externalId ||
-          !animeItem.title ||
-          episode.episode_number === null ||
-          episode.episode_number === undefined
-        ) {
-          continue;
-        }
-
-        const slug = slugify(animeItem.title);
-        if (!slug) continue;
-
-        urls.push({
-          url: `${SITE_URL}/watch/${slug}-${externalId}/ep-${episode.episode_number}`,
-          lastmod: toIso(episode.updated_at) || toIso(animeItem.updated_at),
-          changefreq: 'weekly',
-          priority: '0.7',
         });
       } catch {
         // skip bad row
