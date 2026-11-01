@@ -79,6 +79,11 @@ export function Footer({ navigate }: FooterProps) {
                   Sign In / Register
                 </button>
               </li>
+              <li>
+                <button onClick={() => navigate('/request')} className="hover:text-rose-400 transition-colors">
+                  Request Anime
+                </button>
+              </li>
             </ul>
           </div>
 
@@ -87,8 +92,25 @@ export function Footer({ navigate }: FooterProps) {
             <h4 className="text-xs font-black uppercase tracking-widest text-slate-200 mb-3 border-l-2 border-rose-600 pl-2">
               About & Terms
             </h4>
+            <ul className="space-y-2 text-xs font-bold mb-3">
+              <li>
+                <button onClick={() => navigate('/about')} className="hover:text-rose-400 transition-colors">
+                  About AniVault
+                </button>
+              </li>
+              <li>
+                <button onClick={() => navigate('/privacy')} className="hover:text-rose-400 transition-colors">
+                  Privacy Policy
+                </button>
+              </li>
+              <li>
+                <button onClick={() => navigate('/terms')} className="hover:text-rose-400 transition-colors">
+                  Terms of Service
+                </button>
+              </li>
+            </ul>
             <p className="text-xs text-slate-400 leading-relaxed mb-3">
-              AniVault provides free high-definition anime streaming for enthusiasts worldwide. All trademarks and content belong to their respective creators.
+              All trademarks and content belong to their respective creators.
             </p>
             <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-rose-400">
               <Sparkles className="h-3 w-3" />

@@ -42,6 +42,9 @@ const AdminDashboard = lazy(() =>
 const RequestPage = lazy(() =>
   import('./pages/RequestPage').then((m) => ({ default: m.RequestPage }))
 );
+const LegalPage = lazy(() =>
+  import('./pages/LegalPage').then((m) => ({ default: m.LegalPage }))
+);
 
 function RouteFallback() {
   return (
@@ -128,6 +131,8 @@ export function AppContent() {
         description: 'Request your favorite anime to be added to AniVault. No account required.',
         url: '/request',
       });
+    } else if (pathname === '/about' || pathname === '/privacy' || pathname === '/terms') {
+      // LegalPage sets its own SEO
     } else {
       setPageSeo({ title: 'Anime Streaming Platform', description: 'Watch free anime online on AniVault.', url: pathname });
     }
@@ -216,6 +221,17 @@ export function AppContent() {
     // Public anime request page (no login required)
     if (pathname === '/request') {
       return <RequestPage navigate={navigate} />;
+    }
+
+    // Legal / trust pages
+    if (pathname === '/about') {
+      return <LegalPage type="about" navigate={navigate} />;
+    }
+    if (pathname === '/privacy') {
+      return <LegalPage type="privacy" navigate={navigate} />;
+    }
+    if (pathname === '/terms') {
+      return <LegalPage type="terms" navigate={navigate} />;
     }
 
     // Existing AniVault Homepage: /home
