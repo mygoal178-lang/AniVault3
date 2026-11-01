@@ -1,12 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
-
 /**
- * Vercel Edge Middleware – SEO fix for AniVault SPA
+ * Vercel Edge Middleware – Reliable SEO fix for AniVault SPA
  *
- * When a search-engine bot requests an anime page, we return a complete HTML
- * document with unique <title>, meta description, canonical and the synopsis.
- * Normal users still get the normal SPA experience.
+ * When Googlebot / Bing / other crawlers request an /anime/... page,
+ * we return a complete HTML document with unique title, description,
+ * canonical URL and synopsis. Normal users continue to get the SPA.
+ *
+ * This works on Vercel Edge without Puppeteer or Next.js.
  */
+
+export const config = {
+  matcher: [
+    // Run on all paths except API and static assets
+    '/((?!api|_next/static|_next/image|favicon.ico|assets|.*\\..*).*)',
+  ],
+};
 
 const BOT_UA =
   /googlebot|bingbot|yandex|baiduspider|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator|whatsapp|telegrambot|duckduckbot|applebot|semrushbot|ahrefsbot|mj12bot|dotbot|petalbot|bytespider/i;
@@ -17,7 +24,7 @@ function isBot(ua: string | null): boolean {
 }
 
 function escapeHtml(str: string): string {
-  return str
+  return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -35,9 +42,11 @@ function buildAnimeHtml(opts: {
   genres?: string[];
 }) {
   const title = escapeHtml(opts.title);
-  const description = escapeHtml(opts.description.slice(0, 160));
+  const description = escapeHtml((opts.description || '').slice(0, 160));
   const canonical = escapeHtml(opts.canonical);
-  const image = opts.image ? escapeHtml(opts.image) : 'https://www.anivault.online/landing/zoro-hero.webp';
+  const image = opts.image
+    ? escapeHtml(opts.image)
+    : 'https://www.anivault.online/landing/zoro-hero.webp';
   const synopsis = opts.synopsis ? escapeHtml(opts.synopsis) : description;
   const genres = (opts.genres || []).map(escapeHtml).join(', ');
 
@@ -75,67 +84,52 @@ function buildAnimeHtml(opts: {
   </script>
 
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; background:#07070c; color:#e2e8f0; margin:0; padding:2rem; line-height:1.6; }
-    a { color:#f59e0b; }
-    h1 { color:#fff; margin-bottom:0.5rem; }
-    .meta { color:#94a3b8; font-size:0.9rem; margin-bottom:1.5rem; }
-    .synopsis { max-width:720px; }
-    .cta { display:inline-block; margin-top:2rem; padding:0.75rem 1.5rem; background:#e11d48; color:#fff; text-decoration:none; border-radius:8px; font-weight:600; }
+    body{font-family:system-ui,-apple-system,sans-serif;background:#07070c;color:#e2e8f0;margin:0;padding:2rem;line-height:1.6}
+    a{color:#f59e0b}
+    h1{color:#fff;margin-bottom:.5rem}
+    .meta{color:#94a3b8;font-size:.9rem;margin-bottom:1.5rem}
+    .synopsis{max-width:720px}
+    .cta{display:inline-block;margin-top:2rem;padding:.75rem 1.5rem;background:#e11d48;color:#fff;text-decoration:none;border-radius:8px;font-weight:600}
   </style>
 </head>
 <body>
-  <header>
-    <a href="https://www.anivault.online/">AniVault</a>
-  </header>
+  <header><a href="https://www.anivault.online/">AniVault</a></header>
   <main>
     <h1>${title}</h1>
-    <div class="meta">
-      ${opts.score ? `Score: ${opts.score} · ` : ''}${genres ? genres : ''}
-    </div>
-    <div class="synopsis">
-      <p>${synopsis}</p>
-    </div>
+    <div class="meta">${opts.score ? `Score: ${opts.score} · ` : ''}${genres}</div>
+    <div class="synopsis"><p>${synopsis}</p></div>
     <a class="cta" href="${canonical}">Watch on AniVault →</a>
   </main>
 </body>
 </html>`;
 }
 
-export const config = {
-  matcher: [
-    /*
-     * Match all paths except static assets and API routes
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|assets|.*\\..*).*)',
-  ],
-};
+export default async function middleware(request: Request) {
+  const ua = request.headers.get('user-agent') || '';
+  const url = new URL(request.url);
+  const { pathname } = url;
 
-export default async function middleware(req: NextRequest) {
-  const ua = req.headers.get('user-agent') || '';
-  const { pathname } = req.nextUrl;
-
-  // Only special-case bots on anime detail pages
+  // Only intercept bots on anime detail pages
   if (!isBot(ua) || !pathname.startsWith('/anime/')) {
-    return NextResponse.next();
+    return; // continue to normal SPA
   }
 
-  // Extract MAL ID from URL like /anime/one-piece-21 or /anime/attack-on-titan-16498
+  // Extract MAL ID from URL: /anime/one-piece-21 → 21
   const match = pathname.match(/-(\d+)$/);
   if (!match) {
-    return NextResponse.next();
+    return;
   }
 
   const malId = match[1];
 
   try {
-    // Call our own API (same origin) to get metadata
-    const apiUrl = new URL(`/api/anilist/anime/${malId}`, req.url);
+    const apiUrl = new URL(`/api/anilist/anime/${malId}`, url.origin);
     const res = await fetch(apiUrl.toString(), {
       headers: { Accept: 'application/json' },
     });
 
     if (!res.ok) {
-      return NextResponse.next();
+      return;
     }
 
     const data = await res.json();
@@ -147,10 +141,13 @@ export default async function middleware(req: NextRequest) {
       data.name ||
       `Anime ${malId}`;
 
-    const synopsis = (data.synopsis || data.description || '').replace(/\n+/g, ' ').trim();
+    const rawSynopsis = (data.synopsis || data.description || '')
+      .replace(/\n+/g, ' ')
+      .trim();
+
     const description =
-      synopsis.slice(0, 155) +
-      (synopsis.length > 155 ? '…' : '') ||
+      rawSynopsis.slice(0, 155) +
+        (rawSynopsis.length > 155 ? '…' : '') ||
       `Watch ${title} online in HD on AniVault.`;
 
     const image =
@@ -161,7 +158,9 @@ export default async function middleware(req: NextRequest) {
       undefined;
 
     const genres = Array.isArray(data.genres)
-      ? data.genres.map((g: any) => (typeof g === 'string' ? g : g.name)).filter(Boolean)
+      ? data.genres
+          .map((g: any) => (typeof g === 'string' ? g : g?.name))
+          .filter(Boolean)
       : [];
 
     const score = data.averageScore || data.score || data.mean || undefined;
@@ -171,12 +170,12 @@ export default async function middleware(req: NextRequest) {
       description,
       canonical: `https://www.anivault.online${pathname}`,
       image,
-      synopsis,
+      synopsis: rawSynopsis,
       score,
       genres,
     });
 
-    return new NextResponse(html, {
+    return new Response(html, {
       status: 200,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
@@ -185,8 +184,7 @@ export default async function middleware(req: NextRequest) {
       },
     });
   } catch (err) {
-    // On any error fall back to normal SPA
     console.error('SEO middleware error:', err);
-    return NextResponse.next();
+    return; // fall back to SPA
   }
 }
