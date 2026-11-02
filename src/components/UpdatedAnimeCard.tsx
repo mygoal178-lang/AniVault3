@@ -1,5 +1,5 @@
-import React from 'react';
-import { Star, Play, Heart, Info, MessageSquare, Mic, Tv, Film } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Star, Play, Heart, Info, MessageSquare, Mic } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AniListAnime, SiteAnime } from '../types';
 import { animePath, watchPath } from '../lib/seo';
@@ -12,28 +12,72 @@ interface UpdatedAnimeCardProps {
 }
 
 export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: UpdatedAnimeCardProps) {
-  const { toggleFavorite, isFavorite } = useAuth();
-  
+  const { toggleFavorite, isFavorite, watchHistory, user } = useAuth();
+
   const anilist = anime.anilist || anime.jikan || anime;
   const local = anime.local;
   const malId = anime.mal_id || anilist?.mal_id || null;
 
-  const title = local?.custom_title || anilist?.title_english || anilist?.title || 'Anime Title';
+  const title =
+    local?.custom_title ||
+    anilist?.title_english ||
+    (typeof anilist?.title === 'string' ? anilist.title : anilist?.title?.english || anilist?.title?.romaji) ||
+    'Anime Title';
+
   const coverUrl =
     local?.custom_cover_url ||
     anilist?.images?.jpg?.large_image_url ||
     anilist?.images?.jpg?.image_url ||
     'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=600&auto=format&fit=crop';
 
-  const score = anilist?.score || (anilist?.averageScore ? (anilist.averageScore / 10).toFixed(1) : null);
-  const year = anilist?.year || (anilist?.aired?.from ? new Date(anilist.aired.from).getFullYear() : null);
+  const score =
+    anilist?.score ||
+    (anilist?.averageScore ? (anilist.averageScore / 10).toFixed(1) : null);
+  const year =
+    anilist?.year ||
+    (anilist?.aired?.from ? new Date(anilist.aired.from).getFullYear() : null);
   const format = anilist?.type || anilist?.format || 'TV';
-  
-  // Calculate episode badges based on actual data
+
+  // Site latest episode (catalog freshness)
   const totalEpisodes = anilist?.episodes || anime?.episodes?.length || null;
-  const nextEp = anilist?.nextAiringEpisode?.episode ? anilist.nextAiringEpisode.episode - 1 : null;
-  const latestEpNum = anime?.latest_episode_number || nextEp || totalEpisodes || (anilist?.status === 'Currently Airing' ? '?' : 12);
-  const dubEpNum = typeof latestEpNum === 'number' ? Math.max(1, latestEpNum - (anilist?.status === 'Currently Airing' ? 2 : 0)) : null;
+  const nextEp = anilist?.nextAiringEpisode?.episode
+    ? anilist.nextAiringEpisode.episode - 1
+    : null;
+  const latestEpNum =
+    anime?.latest_episode_number ||
+    nextEp ||
+    totalEpisodes ||
+    (anilist?.status === 'Currently Airing' ? '?' : 12);
+  const dubEpNum =
+    typeof latestEpNum === 'number'
+      ? Math.max(1, latestEpNum - (anilist?.status === 'Currently Airing' ? 2 : 0))
+      : null;
+
+  // User's personal progress for this anime (most recently updated history row)
+  const userProgress = useMemo(() => {
+    if (!user || !malId || !watchHistory?.length) return null;
+    const rows = watchHistory
+      .filter((h) => Number(h.anime_mal_id) === Number(malId))
+      .sort((a, b) => {
+        // Prefer incomplete, then highest episode, then most recent
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        if (b.episode_number !== a.episode_number) return b.episode_number - a.episode_number;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
+    return rows[0] || null;
+  }, [user, malId, watchHistory]);
+
+  const userEpNum = userProgress?.episode_number ?? null;
+  const hasUserProgress = typeof userEpNum === 'number' && userEpNum > 0;
+  // Episode the Watch button should open
+  const targetEpNum =
+    hasUserProgress && !userProgress?.completed
+      ? userEpNum
+      : typeof latestEpNum === 'number'
+        ? latestEpNum
+        : hasUserProgress
+          ? userEpNum
+          : 1;
 
   const inWatchlist = malId ? isFavorite(malId) : false;
 
@@ -44,10 +88,10 @@ export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: Updated
 
   const handleWatchClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (typeof latestEpNum === 'number') {
-      navigate(watchPath(malId, latestEpNum, title));
-    } else {
-      if (malId) navigate(animePath(malId, title));
+    if (malId && typeof targetEpNum === 'number') {
+      navigate(watchPath(malId, targetEpNum, title));
+    } else if (malId) {
+      navigate(animePath(malId, title));
     }
   };
 
@@ -58,7 +102,6 @@ export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: Updated
         onClick={() => navigate(animePath(malId, title))}
         className="group relative flex items-center gap-3 sm:gap-4 p-2.5 sm:p-3 rounded-2xl border border-white/5 bg-[#0a0a10] hover:border-rose-500/40 hover:bg-white/[0.03] transition-all cursor-pointer shadow-md"
       >
-        {/* List Thumbnail */}
         <div className="relative h-20 w-16 sm:h-24 sm:w-20 shrink-0 rounded-xl overflow-hidden bg-[#08080c]">
           <img
             src={coverUrl}
@@ -66,13 +109,13 @@ export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: Updated
             loading="lazy"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=600&auto=format&fit=crop';
+              (e.target as HTMLImageElement).src =
+                'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=600&auto=format&fit=crop';
             }}
           />
           <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
         </div>
 
-        {/* List Info */}
         <div className="flex-1 min-w-0 pr-2">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="inline-flex items-center gap-1 rounded bg-[#5b38d6]/30 border border-[#7a54f7]/40 px-1.5 py-0.5 text-[10px] font-black text-[#b69eff]">
@@ -85,6 +128,14 @@ export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: Updated
                 <span>{dubEpNum}</span>
               </span>
             )}
+            {hasUserProgress && (
+              <span className="inline-flex items-center gap-1 rounded bg-rose-600/25 border border-rose-500/40 px-1.5 py-0.5 text-[10px] font-black text-rose-300">
+                <Play className="h-2.5 w-2.5 fill-rose-300" />
+                <span>
+                  {userProgress?.completed ? `Watched Ep ${userEpNum}` : `Continue Ep ${userEpNum}`}
+                </span>
+              </span>
+            )}
             <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold text-slate-300 uppercase">
               {format}
             </span>
@@ -95,7 +146,11 @@ export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: Updated
           </h3>
 
           <div className="flex items-center gap-2 mt-0.5 text-[11px] font-semibold text-rose-400">
-            <span>Episode {latestEpNum}</span>
+            <span>
+              {hasUserProgress && !userProgress?.completed
+                ? `Your progress · Ep ${userEpNum}`
+                : `Episode ${latestEpNum}`}
+            </span>
             <span className="text-slate-500">•</span>
             <span className="text-slate-400 font-medium">Recently Updated</span>
           </div>
@@ -114,7 +169,6 @@ export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: Updated
           </div>
         </div>
 
-        {/* Action Button */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={handleFavoriteClick}
@@ -132,20 +186,22 @@ export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: Updated
             className="flex h-9 px-3 items-center justify-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/20 active:scale-95 transition-all"
           >
             <Play className="h-3 w-3 fill-white" />
-            <span className="hidden sm:inline">Watch</span>
+            <span className="hidden sm:inline">
+              {hasUserProgress && !userProgress?.completed ? 'Continue' : 'Watch'}
+            </span>
           </button>
         </div>
       </div>
     );
   }
 
+  // Grid view
   return (
     <div
       id={`updated-anime-card-${malId}`}
       onClick={() => navigate(animePath(malId, title))}
       className="group relative flex flex-col cursor-pointer overflow-hidden rounded-2xl border border-white/5 bg-[#0a0a10] shadow-lg transition-all duration-300 hover:-translate-y-1.5 hover:border-rose-600/50 hover:shadow-2xl hover:shadow-rose-950/30"
     >
-      {/* Cover Image Container */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#08080c]">
         <img
           src={coverUrl}
@@ -153,18 +209,20 @@ export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: Updated
           loading="lazy"
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=600&auto=format&fit=crop';
+            (e.target as HTMLImageElement).src =
+              'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=600&auto=format&fit=crop';
           }}
         />
 
-        {/* Top Badges (Score & Watchlist) */}
         <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-2 z-20 pointer-events-none">
           {score ? (
             <div className="flex items-center gap-1 rounded-full border border-amber-500/30 bg-black/75 px-2 py-0.5 text-[10px] font-bold text-amber-300 backdrop-blur-md shadow">
               <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
               <span>{score}</span>
             </div>
-          ) : <div />}
+          ) : (
+            <div />
+          )}
 
           <button
             onClick={handleFavoriteClick}
@@ -179,31 +237,33 @@ export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: Updated
           </button>
         </div>
 
-        {/* Visual Reference Bottom Badge Row Over Poster: [CC ep] [MIC ep] [TYPE] */}
         <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between gap-1 z-20 pointer-events-none">
           <div className="flex items-center gap-1 flex-wrap">
-            {/* Closed Caption / Subtitle Badge */}
             <div className="flex items-center gap-1 rounded-md bg-[#4c2bb8]/90 border border-[#6b46e5]/40 px-1.5 py-0.5 text-[10px] font-black text-[#d3c4ff] backdrop-blur-md shadow-sm">
               <MessageSquare className="h-2.5 w-2.5" />
               <span>{latestEpNum}</span>
             </div>
-
-            {/* Dubbed Audio Badge (if available) */}
             {dubEpNum && (
               <div className="flex items-center gap-1 rounded-md bg-amber-500/80 border border-amber-400/40 px-1.5 py-0.5 text-[10px] font-black text-amber-950 backdrop-blur-md shadow-sm">
                 <Mic className="h-2.5 w-2.5" />
                 <span>{dubEpNum}</span>
               </div>
             )}
+            {hasUserProgress && (
+              <div className="flex items-center gap-1 rounded-md bg-rose-600/90 border border-rose-400/50 px-1.5 py-0.5 text-[10px] font-black text-white backdrop-blur-md shadow-sm">
+                <Play className="h-2.5 w-2.5 fill-white" />
+                <span>
+                  {userProgress?.completed ? `Done ${userEpNum}` : `You · Ep ${userEpNum}`}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Media Format Type Badge (TV, ONA, Movie, etc.) */}
           <div className="rounded-md bg-black/80 border border-white/10 px-1.5 py-0.5 text-[9px] font-black text-slate-300 uppercase backdrop-blur-md shadow-sm">
             {format}
           </div>
         </div>
 
-        {/* Hover / Touch Action Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#08080c] via-[#08080c]/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 z-30 pointer-events-none sm:pointer-events-auto">
           <div className="space-y-1.5 transform translate-y-3 group-hover:translate-y-0 transition-transform duration-300">
             <button
@@ -211,7 +271,11 @@ export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: Updated
               className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 px-3 py-2 text-xs font-black text-white shadow-lg shadow-rose-600/30 transition-all uppercase active:scale-95"
             >
               <Play className="h-3 w-3 fill-white" />
-              <span>Watch Now</span>
+              <span>
+                {hasUserProgress && !userProgress?.completed
+                  ? `Continue Ep ${userEpNum}`
+                  : 'Watch Now'}
+              </span>
             </button>
 
             <button
@@ -228,11 +292,16 @@ export function UpdatedAnimeCard({ anime, navigate, viewMode = 'grid' }: Updated
         </div>
       </div>
 
-      {/* Card Information Footer */}
       <div className="flex flex-1 flex-col p-2.5 sm:p-3">
         <div className="flex items-center justify-between gap-1 text-[11px] font-bold text-rose-400 mb-0.5">
-          <span className="truncate">Episode {latestEpNum}</span>
-          <span className="text-[10px] text-slate-400 font-medium shrink-0">Updated</span>
+          <span className="truncate">
+            {hasUserProgress && !userProgress?.completed
+              ? `Continue Ep ${userEpNum}`
+              : `Episode ${latestEpNum}`}
+          </span>
+          <span className="text-[10px] text-slate-400 font-medium shrink-0">
+            {hasUserProgress ? 'Your progress' : 'Updated'}
+          </span>
         </div>
         <h3
           title={title}
