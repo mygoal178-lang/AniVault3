@@ -159,6 +159,16 @@ export function AppContent() {
       }
     }
 
+    // Watch without episode: /watch/:malId or /watch/:slug-malId → default to episode 1
+    // (missing epNum used to fall through to homepage)
+    const watchNoEpMatch = pathname.match(/^\/watch\/([^/]+)$/);
+    if (watchNoEpMatch) {
+      const malId = parseMalIdFromSegment(watchNoEpMatch[1]);
+      if (malId) {
+        return <WatchPage malId={malId} epNum={1} navigate={navigate} />;
+      }
+    }
+
     // Anime Details Page: /anime/:malId  OR  /anime/:slug-malId
     const animeMatch = pathname.match(/^\/anime\/([^/]+)$/);
     if (animeMatch) {
