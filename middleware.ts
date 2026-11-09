@@ -4,6 +4,9 @@
  * When Googlebot / Bing / other crawlers request important pages,
  * we return a complete HTML document with unique title, description
  * and canonical. Normal users continue to get the SPA.
+ *
+ * Enriched bot HTML (more unique content + internal links) to improve
+ * crawl/index priority for /anime/* pages.
  */
 
 export const config = {
@@ -20,6 +23,7 @@ function isBot(ua: string | null): boolean {
   return BOT_UA.test(ua);
 }
 
+/** Proper HTML escaping (previous version was a no-op for & < > ") */
 function escapeHtml(str: string): string {
   return String(str)
     .replace(/&/g, '&')
@@ -106,6 +110,22 @@ const STATIC_PAGES: Record<
   },
 };
 
+function navHtml(): string {
+  return `
+  <header>
+    <nav>
+      <a href="https://www.anivault.online/">AniVault</a>
+      <a href="https://www.anivault.online/home">Home</a>
+      <a href="https://www.anivault.online/search">Search</a>
+      <a href="https://www.anivault.online/genres">Genres</a>
+      <a href="https://www.anivault.online/updated">Updated</a>
+      <a href="https://www.anivault.online/request">Request</a>
+      <a href="https://www.anivault.online/about">About</a>
+      <a href="https://www.anivault.online/privacy">Privacy</a>
+    </nav>
+  </header>`;
+}
+
 function buildPageHtml(opts: {
   title: string;
   description: string;
@@ -171,18 +191,7 @@ function buildPageHtml(opts: {
   </style>
 </head>
 <body>
-  <header>
-    <nav>
-      <a href="https://www.anivault.online/">AniVault</a>
-      <a href="https://www.anivault.online/home">Home</a>
-      <a href="https://www.anivault.online/search">Search</a>
-      <a href="https://www.anivault.online/genres">Genres</a>
-      <a href="https://www.anivault.online/updated">Updated</a>
-      <a href="https://www.anivault.online/about">About</a>
-      <a href="https://www.anivault.online/privacy">Privacy</a>
-      <a href="https://www.anivault.online/terms">Terms</a>
-    </nav>
-  </header>
+  ${navHtml()}
   <main>
     <h1>${h1}</h1>
     <div class="content"><p>${body}</p></div>
@@ -200,6 +209,12 @@ function buildAnimeHtml(opts: {
   synopsis?: string;
   score?: number | string;
   genres?: string[];
+  episodes?: number | string | null;
+  status?: string | null;
+  year?: number | string | null;
+  season?: string | null;
+  studios?: string[];
+  type?: string | null;
 }) {
   const title = escapeHtml(opts.title);
   const description = escapeHtml((opts.description || '').slice(0, 160));
@@ -209,6 +224,55 @@ function buildAnimeHtml(opts: {
     : 'https://www.anivault.online/landing/zoro-hero.webp';
   const synopsis = opts.synopsis ? escapeHtml(opts.synopsis) : description;
   const genres = (opts.genres || []).map(escapeHtml).join(', ');
+  const studios = (opts.studios || []).map(escapeHtml).join(', ');
+
+  const metaParts: string[] = [];
+  if (opts.score) metaParts.push(`Score: ${escapeHtml(String(opts.score))}`);
+  if (opts.type) metaParts.push(escapeHtml(String(opts.type)));
+  if (opts.status) metaParts.push(escapeHtml(String(opts.status)));
+  if (opts.year) metaParts.push(escapeHtml(String(opts.year)));
+  if (opts.season) metaParts.push(escapeHtml(String(opts.season)));
+  if (opts.episodes) metaParts.push(`${escapeHtml(String(opts.episodes))} episodes`);
+  if (genres) metaParts.push(genres);
+  if (studios) metaParts.push(`Studio: ${studios}`);
+
+  // Simple episode list for crawlers (links back to same page – real player is SPA)
+  let episodesBlock = '';
+  const epCount = Number(opts.episodes);
+  if (epCount && epCount > 0 && epCount <= 100) {
+    const links: string[] = [];
+    for (let i = 1; i <= epCount; i++) {
+      links.push(`<li><a href="${canonical}">Episode ${i}</a></li>`);
+    }
+    episodesBlock = `
+    <section class="episodes">
+      <h2>Episodes</h2>
+      <ul>${links.join('')}</ul>
+    </section>`;
+  } else if (epCount && epCount > 100) {
+    episodesBlock = `
+    <section class="episodes">
+      <h2>Episodes</h2>
+      <p>${escapeHtml(String(epCount))} episodes available. Open the page to browse and watch.</p>
+    </section>`;
+  }
+
+  const jsonLd: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'TVSeries',
+    name: opts.title,
+    description: (opts.description || opts.synopsis || '').slice(0, 300),
+    url: opts.canonical,
+    image: opts.image || undefined,
+  };
+  if (opts.score) jsonLd.aggregateRating = {
+    '@type': 'AggregateRating',
+    ratingValue: Number(opts.score),
+    bestRating: 10,
+  };
+  if (opts.episodes) jsonLd.numberOfEpisodes = Number(opts.episodes);
+  if (genres) jsonLd.genre = opts.genres;
+  if (opts.year) jsonLd.datePublished = String(opts.year);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -233,33 +297,40 @@ function buildAnimeHtml(opts: {
   <meta name="twitter:image" content="${image}" />
 
   <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "TVSeries",
-    "name": "${title}",
-    "description": "${description}",
-    "url": "${canonical}",
-    "image": "${image}"
-  }
+  ${JSON.stringify(jsonLd)}
   </script>
 
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;background:#07070c;color:#e2e8f0;margin:0;padding:2rem;line-height:1.6}
     a{color:#f59e0b}
     h1{color:#fff;margin-bottom:.5rem}
+    h2{color:#fff;font-size:1.15rem;margin-top:2rem}
     .meta{color:#94a3b8;font-size:.9rem;margin-bottom:1.5rem}
     .synopsis{max-width:720px}
+    .episodes ul{columns:2;max-width:480px;padding-left:1.25rem}
     .cta{display:inline-block;margin-top:2rem;padding:.75rem 1.5rem;background:#e11d48;color:#fff;text-decoration:none;border-radius:8px;font-weight:600}
+    nav a{margin-right:1rem}
+    footer{margin-top:3rem;color:#64748b;font-size:.85rem}
   </style>
 </head>
 <body>
-  <header><a href="https://www.anivault.online/">AniVault</a></header>
+  ${navHtml()}
   <main>
     <h1>${title}</h1>
-    <div class="meta">${opts.score ? `Score: ${opts.score} · ` : ''}${genres}</div>
+    <div class="meta">${metaParts.join(' · ')}</div>
     <div class="synopsis"><p>${synopsis}</p></div>
-    <a class="cta" href="${canonical}">Watch on AniVault →</a>
+    ${episodesBlock}
+    <p><a class="cta" href="${canonical}">Watch on AniVault →</a></p>
+    <p style="margin-top:1.5rem">
+      <a href="https://www.anivault.online/home">Home</a> ·
+      <a href="https://www.anivault.online/search">Search more anime</a> ·
+      <a href="https://www.anivault.online/genres">Browse genres</a> ·
+      <a href="https://www.anivault.online/updated">Recently updated</a>
+    </p>
   </main>
+  <footer>
+    <p>Watch ${title} free in HD on AniVault. English subtitles and dub when available.</p>
+  </footer>
 </body>
 </html>`;
 }
@@ -337,6 +408,7 @@ export default async function middleware(request: Request) {
       data.coverImage?.large ||
       data.image ||
       data.images?.jpg?.large_image_url ||
+      data.images?.jpg?.image_url ||
       undefined;
 
     const genres = Array.isArray(data.genres)
@@ -345,7 +417,18 @@ export default async function middleware(request: Request) {
           .filter(Boolean)
       : [];
 
+    const studios = Array.isArray(data.studios)
+      ? data.studios
+          .map((s: any) => (typeof s === 'string' ? s : s?.name))
+          .filter(Boolean)
+      : [];
+
     const score = data.averageScore || data.score || data.mean || undefined;
+    const episodes = data.episodes ?? data.number_of_episodes ?? null;
+    const status = data.status || null;
+    const year = data.year || data.seasonYear || null;
+    const season = data.season || null;
+    const type = data.type || null;
 
     const html = buildAnimeHtml({
       title,
@@ -355,6 +438,12 @@ export default async function middleware(request: Request) {
       synopsis: rawSynopsis,
       score,
       genres,
+      episodes,
+      status,
+      year,
+      season,
+      studios,
+      type,
     });
 
     return new Response(html, {
